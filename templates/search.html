@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Report Maker - Polar Pipeline</title>
+    <title>Search - Polar Pipeline</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
@@ -83,6 +83,9 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('reportresult') }}">Report</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('frequency') }}">Frequency</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('search') }}">Search</a>

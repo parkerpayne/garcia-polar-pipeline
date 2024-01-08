@@ -1245,11 +1245,11 @@ def reportresult(chr='X', pos='X', ref='X', alt='X'):
             tools.append('MA,' if 'H' in row['MutationAssessor_pred'] else '')
             tools.append('MC,' if 'D' in row['M-CAP_pred'] else '')
             tools.append('ML,' if 'D' in row['MetaLR_pred'] else '')
-            tools.append('MP,' if row['MPC_score'] != '-' and max(list_to_float(row['MPC_score'].split(','))) > 0.5  else '')
+            tools.append('MP,' if row['MPC_score'] != '-' and max(list_to_float(str(row['MPC_score']).split(','))) > 0.5  else '')
             tools.append('MR,' if 'D' in row['MetaRNN_pred'] else '')
             tools.append('MS,' if 'D' in row['MetaSVM_pred'] else '')
             tools.append('MT,' if 'D' in row['MutationTaster_pred'] else '')
-            tools.append('MV,' if row['MVP_score'] != '-' and max(list_to_float(row['MVP_score'].split(','))) > 0.7  else '')
+            tools.append('MV,' if row['MVP_score'] != '-' and max(list_to_float(str(row['MVP_score']).split(','))) > 0.7  else '')
             tools.append('PA,' if 'D' in row['PrimateAI_pred'] else '')
             tools.append('PD,' if 'D' in row['Polyphen2_HDIV_pred'] else '')
             tools.append('PP,' if 'probably_damaging' in row['PolyPhen'] else '')
@@ -1258,7 +1258,7 @@ def reportresult(chr='X', pos='X', ref='X', alt='X'):
             tools.append('RV,' if row['REVEL'] != '-' and float(row['REVEL']) > 0.75  else '')
             tools.append('SF,' if 'deleterious' in row['SIFT'] else '')
             tools.append('S4,' if 'D' in row['SIFT4G_pred'] else '')
-            tools.append('V4,' if row['VEST4_score'] != '-' and max(list_to_float(row['VEST4_score'].split(','))) > 0.5  else '')
+            tools.append('V4,' if row['VEST4_score'] != '-' and max(list_to_float(str(row['VEST4_score']).split(','))) > 0.5  else '')
             # num_tools = int(len(''.join(tools).replace(',',''))/2)
 
             while("" in tools):
@@ -1285,7 +1285,8 @@ def reportresult(chr='X', pos='X', ref='X', alt='X'):
                     rarity,
                     tools
                 ))
-        except:
+        except Exception as e:
+            print(e)
             continue
         
     print(reportText)
@@ -1293,25 +1294,48 @@ def reportresult(chr='X', pos='X', ref='X', alt='X'):
         reportText = [('Error', 'Could not find complete vep output.')]
     return render_template('report.html', reportText=reportText, placeholder=f'chr{chr}_{pos}_{ref}/{alt}')
 
+@app.route('/frequency/<string:chr>:<string:pos>:<string:ref>:<string:alt>')
+@app.route('/frequency')
+def frequency(chr='X', pos='X', ref='X', alt='X'):
+    if chr == 'X' and pos == 'X' and ref == 'X' and alt == 'X':
+        return render_template('frequency.html', reportText='', placeholder='chrX_XXXX_X/X')
+
+    # print(chr, pos, ref, alt)
+    id = f'chr{chr}_{pos}_{ref}/{alt}'
+    print(id)
+
+    variant = []
+
+    for line in open('/home/threadripper/shared_storage/frequency/variantCatalogue.csv'):
+        if id in line:
+            variant = line.strip().split(',')
+            return render_template('frequency.html', variant=variant, placeholder=id)
+    return render_template('frequency.html', variant=variant, placeholder=id)
+    
+    
+
+db_config_parser = configparser.ConfigParser()
+db_config_parser.optionxform = str
+
 @app.route('/search')
 @app.route('/search/<int:numperpage>/<int:page>')
 def search(numperpage=10, page=0):
-    
+    db_config_parser.read('/home/threadripper/shared_storage/databases/databases.ini')
     filename = ''
     for file in os.listdir():
         if file.endswith('_search_result.tsv'):
             filename = file
             continue
     available_dbs = []
-    for item in os.listdir('/home/threadripper/shared_storage/databases'):
-        if os.path.isdir(f'/home/threadripper/shared_storage/databases/{item}'):
-            available_dbs.append(item)
+    for item in db_config_parser['DEFAULT']:
+        available_dbs.append(item)
     columns = []
-    for col in open('/home/threadripper/shared_storage/databases/datatypes.txt', 'r'):
-        columns.append(col.strip().split('\t')[0])
+    for col in open('/home/threadripper/shared_storage/databases/datatypes.ini', 'r'):
+        if not col.startswith('['):
+            columns.append(col.strip().split('=')[0])
     result = []
     lines = []
-    numresults = 0
+    numresults = -1
     for index, line in enumerate(open(filename, 'r')):
         numresults += 1
         if not index > numperpage*(page+1):
@@ -1327,7 +1351,7 @@ def search(numperpage=10, page=0):
             continue
     nextpage = -1
     prevpage = -1
-    if page*numperpage+numperpage+1 < len(lines):
+    if page*numperpage+numperpage+1 < numresults:
         nextpage = page+1
     if page != 0:
         prevpage = page-1
@@ -1529,7 +1553,8 @@ def beginsearch():
     print(files)
     numFiles = len(files)
     numParams = len(parameters)
-
+    command = 'rm .*.crc'
+    os.system(command)
     currDB = ''
     
     for fileIndex, file in enumerate(files):
@@ -1557,18 +1582,19 @@ def beginsearch():
         except Exception as e:
             print(e)
             error = str(e)
-            if 'Java stack trace' in error:
-                yellow = True
+            if 'Java stack trace' in error or currDB not in os.listdir():
                 database = currDB
+                yellow = True
                 print(database)
-                with open('rebuild_db.log', 'a') as opened:
-                    opened.write(database + ' ' + datetime.now())
+                # with open('rebuild_db.log', 'a') as opened:
+                #     opened.write(currDB + ' ' + datetime.now())
                 newDB = ''
-                for root, dirs, files in os.walk(f'/mnt/synology3/polar_pipeline/{database}'):
-                    for file_ in files:
-                        if '_merged.' in file_:
-                            if newDB == '':
-                                newDB = os.path.join(root, file_)
+                # for root, dirs, files in os.walk(f'/mnt/synology3/polar_pipeline/{database}'):
+                #     for file_ in files:
+                #         if '_merged.' in file_:
+                #             if newDB == '':
+                #                 newDB = os.path.join(root, file_)
+                newDB = db_config_parser['DEFAULT'][database]
                 if newDB == '':
                     print('COULD NOT FIND REPLACEMENT DB')
                     return 'failed'
@@ -1598,7 +1624,8 @@ def beginsearch():
                         progress = ((fileIndex * numParams) + paramIndex) / (numFiles * numParams)
 
                     ht.export(searchname.replace('.tsv', f'_{fileIndex}.tsv'))
-                except:
+                except Exception as ex:
+                    print(ex)
                     command = f'rm *_search_result_*'
                     os.system(command)
                     return 'failed'
@@ -1637,6 +1664,8 @@ def beginsearch():
     command = 'rm *.log'
     os.system(command)
     command = 'rm *_search_result_*'
+    os.system(command)
+    command = 'rm .*.crc'
     os.system(command)
 
     if os.path.getsize(searchname) == 0:

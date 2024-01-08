@@ -1312,7 +1312,6 @@ def frequency(chr='X', pos='X', ref='X', alt='X'):
             return render_template('frequency.html', variant=variant, placeholder=id)
     return render_template('frequency.html', variant=variant, placeholder=id)
     
-    
 
 db_config_parser = configparser.ConfigParser()
 db_config_parser.optionxform = str
